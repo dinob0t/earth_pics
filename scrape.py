@@ -15,7 +15,6 @@ import urllib
 from nltk.tag.stanford import NERTagger
 st = NERTagger('./stanford-ner-2014-06-16/classifiers/english.all.3class.distsim.crf.ser.gz', \
 './stanford-ner-2014-06-16/stanford-ner.jar')
-# print st.tag("Rami Eid is studying at Stony Brook University in NY".split())
 
 try:
 	with open('image_dict.csv', 'rb') as r: 
@@ -28,8 +27,12 @@ browser = webdriver.Chrome()
 
 browser.get("http://www.reddit.com/r/earthporn")
 time.sleep(2*random.random())
-
+widths = []
+heights = []
 iterations = 1
+total_images = 0
+name_strings = []
+locations_strings = []
 for iteration in range(iterations):
 
 	soup = BeautifulSoup(browser.page_source)
@@ -43,7 +46,6 @@ for iteration in range(iterations):
 			links.pop(count)
 		else:
 			count +=1
-
 
 	count = 0
 	while count < len(thumbs):
@@ -76,23 +78,45 @@ for iteration in range(iterations):
 			success = 1
 		finally:
 			pass
-		print 'successs' + str(success)
-		
-		f = open('tmp.jpg','wb')
-		f.write(dl)
-		f.close()
+		if success == 1:
+			
+			f = open('data/' + str(total_images) + '.jpg','wb')
+			f.write(dl)
+			f.close()
 
+			cur_contents = links[i].contents
+			tagger_results = st.tag(str(cur_contents).split())
+			cur_image = np.asarray(im.open('data/' + str(total_images) + '.jpg'))
+			widths.append(cur_image.shape[1])
+			heights.append(cur_image.shape[0])
+			total_images +=1
 
-		cur_contents = links[i].contents
-		tagger_results = st.tag(str(cur_contents).split())
-		print tagger_results
-		cur_image = np.asarray(im.open('tmp.jpg'))
-		print cur_image.shape
+			name_strings.append(cur_contents)
 
+			location = ''
+			for tup in tagger_results:
+				if tup[1] == 'ORGANIZATION' or tup[1] == 'LOCATION':
+					location += tup[0] + ' '
+			locations_strings.append(''.join(location))
+			
 	elem = browser.find_element_by_partial_link_text("next ")
 	elem.send_keys(Keys.RETURN)
 	time.sleep(2*random.random())
+	
 
 browser.quit()
 
 time.sleep(random.random())
+
+with open('locations.csv', 'wb') as csvfile:
+	writer = csv.writer(csvfile)
+	for row in locations_strings:
+		writer.writerow([str(row).encode('utf-8')])
+
+with open('names.csv', 'wb') as csvfile:
+	writer = csv.writer(csvfile)
+	for row in name_strings:
+		writer.writerow([str(row).encode('utf-8')])
+
+# print 1.0*np.sum(widths)/total_images
+# print 1.0*np.sum(heights)/total_images
